@@ -71,6 +71,7 @@ export default function Home() {
   const [editingTranscript, setEditingTranscript] = useState(false);
   const [editedContent, setEditedContent] = useState("");
   const [savingTranscript, setSavingTranscript] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -156,8 +157,8 @@ export default function Home() {
       const transcript = await transcribeAudio(file, controller.signal);
       setResult(transcript);
       setText(transcript.content);
-      setStatus("Transcription completed successfully");
-      setNotice("Your transcript was saved.");
+      setStatus("Transcription completed successfully. Review and edit before saving.");
+      setNotice("Preview ready. Review or edit the text, then click Save Transcript.");
     } catch (err) {
       if (controller.signal.aborted) {
         setStatus("Transcription cancelled");
@@ -171,6 +172,70 @@ export default function Home() {
         abortControllerRef.current = null;
         setLoading(false);
       }
+    }
+  }
+
+  async function saveNewTranscript(
+    content: string,
+    language?: string | null,
+    durationSeconds?: number | null,
+    source: "upload" | "live" = "upload",
+  ) {
+    if (!content.trim() || savingDraft) return;
+
+    setSavingDraft(true);
+    setError("");
+    setHistoryError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/transcripts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          content: content.trim(),
+          title: content.trim().split(/\s+/).slice(0, 6).join(" ") || "Untitled Transcript",
+          language: language || null,
+          duration_seconds: durationSeconds ?? null,
+          source,
+        }),
+      });
+
+      if (!response.ok) {
+        let message = `Save failed (${response.status}).`;
+        try {
+          const payload = await response.json();
+          message =
+            typeof payload?.detail === "string"
+              ? payload.detail
+              : typeof payload?.message === "string"
+                ? payload.message
+                : message;
+        } catch {
+          // Keep status-based error if response is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      const payload = await response.json();
+      const saved = payload?.transcript ?? payload?.data ?? payload;
+
+      if (!saved || saved.id == null) {
+        throw new Error(
+          "The API accepted the save but did not return a transcript ID. Check the create-transcript API response.",
+        );
+      }
+
+      setResult(saved as Transcript);
+      setNotice("Transcript saved successfully.");
+      setStatus("Transcript saved to History.");
+      await loadHistory();
+    } catch (err) {
+      throw err instanceof Error ? err : new Error("Could not save transcript.");
+    } finally {
+      setSavingDraft(false);
     }
   }
 
@@ -666,12 +731,12 @@ export default function Home() {
                   {result && (
                     <div className="success-panel mt-4 rounded-xl p-4">
                       <p className="text-sm font-semibold text-emerald-200">
-                        ✓ Transcript saved successfully
+                        ✓ Transcription preview ready
                       </p>
                       <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-300">
                         <div>
-                          <p className="text-slate-500">Transcript ID</p>
-                          <p className="mt-1 font-medium">{result.id}</p>
+                          <p className="text-slate-500">Status</p>
+                          <p className="mt-1 font-medium">Not saved yet</p>
                         </div>
                         <div>
                           <p className="text-slate-500">Language</p>
@@ -688,8 +753,23 @@ export default function Home() {
                       </div>
                       <button
                         type="button"
+                        disabled={!text.trim() || savingDraft}
+                        onClick={() =>
+                          void saveNewTranscript(
+                            text,
+                            result.language,
+                            result.duration_seconds,
+                            "upload",
+                          ).catch((err) => setError(err.message))
+                        }
+                        className="mt-4 rounded-lg bg-emerald-300 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {savingDraft ? "Saving..." : "Save Transcript"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setMode("history")}
-                        className="mt-4 rounded-lg border border-emerald-300/20 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/10"
+                        className="ml-2 mt-4 rounded-lg border border-emerald-300/20 px-3 py-2.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/10"
                       >
                         View transcript history →
                       </button>
@@ -717,7 +797,11 @@ export default function Home() {
                     Microphone mode
                   </span>
                 </div>
-                <LiveRecorder />
+                <LiveRecorder
+                  onSave={async (content, language) => {
+                    await saveNewTranscript(content, language, null, "live");
+                  }}
+                />
               </div>
             )}
 

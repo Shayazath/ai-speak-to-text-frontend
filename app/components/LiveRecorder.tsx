@@ -88,13 +88,18 @@ function mergeTranscript(
     newText: currentWindow.trim(),
   };
 }
-export default function LiveRecorder() {
+type LiveRecorderProps = {
+  onSave: (content: string, language: string) => Promise<void>;
+};
+
+export default function LiveRecorder({ onSave }: LiveRecorderProps) {
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [language, setLanguage] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Ready to record");
+  const [saving, setSaving] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -160,12 +165,12 @@ export default function LiveRecorder() {
       }
     };
   }, []);
-  previousWindowRef.current = "";
-  fullTranscriptRef.current = "";
   async function startRecording() {
     if (startingRef.current || recording) return;
 
     startingRef.current = true;
+    previousWindowRef.current = "";
+    fullTranscriptRef.current = "";
     setError("");
     setTranscript("");
     setLanguage("");
@@ -372,8 +377,53 @@ export default function LiveRecorder() {
         </p>
       )}
 
-      <div className="mt-4 min-h-32 whitespace-pre-wrap break-words rounded-xl border border-slate-700 bg-slate-950 p-4 text-sm leading-7">
-        {transcript || "Your live transcript will appear here..."}
+      <label htmlFor="live-transcript" className="mt-4 block text-sm font-medium text-slate-300">
+        Full conversation (editable)
+      </label>
+      <textarea
+        id="live-transcript"
+        value={transcript}
+        onChange={(event) => {
+          fullTranscriptRef.current = event.target.value;
+          setTranscript(event.target.value);
+        }}
+        placeholder="Your full live conversation will appear here..."
+        className="mt-2 min-h-48 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 p-4 text-sm leading-7 text-slate-200 outline-none focus:border-cyan-400"
+      />
+
+      <div className="mt-3 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={!transcript.trim() || recording || saving}
+          onClick={async () => {
+            setSaving(true);
+            setError("");
+            try {
+              await onSave(transcript.trim(), language);
+              setStatus("Transcript saved successfully");
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Could not save transcript.");
+            } finally {
+              setSaving(false);
+            }
+          }}
+          className="rounded-lg bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save Transcript"}
+        </button>
+        <button
+          type="button"
+          disabled={!transcript || recording || saving}
+          onClick={() => {
+            setTranscript("");
+            fullTranscriptRef.current = "";
+            previousWindowRef.current = "";
+            setStatus("Transcript cleared");
+          }}
+          className="rounded-lg border border-slate-700 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+        >
+          Clear
+        </button>
       </div>
 
       {error && (
