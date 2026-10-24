@@ -68,6 +68,9 @@ export default function Home() {
   const [deleteTarget, setDeleteTarget] =
     useState<HistoryTranscript | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingTranscript, setEditingTranscript] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [savingTranscript, setSavingTranscript] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -230,6 +233,8 @@ export default function Home() {
 
       if (selectedTranscript?.id === deleteTarget.id) {
         setSelectedTranscript(null);
+        setEditingTranscript(false);
+        setEditedContent("");
       }
 
       setNotice("Transcript deleted.");
@@ -240,6 +245,73 @@ export default function Home() {
       );
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function updateTranscript() {
+    if (!selectedTranscript || savingTranscript) return;
+
+    setSavingTranscript(true);
+    setHistoryError("");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/transcripts/${encodeURIComponent(String(selectedTranscript.id))}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ content: editedContent }),
+        }
+      );
+
+      if (!response.ok) {
+        let message = `Update failed (${response.status}).`;
+        try {
+          const payload = await response.json();
+          message =
+            typeof payload?.detail === "string"
+              ? payload.detail
+              : typeof payload?.message === "string"
+                ? payload.message
+                : message;
+        } catch {
+          // Keep the status-based message if the response is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      const payload = await response.json().catch(() => null);
+      const responseRecord =
+        payload && typeof payload === "object"
+          ? payload.transcript ?? payload.data ?? payload
+          : null;
+
+      const updatedTranscript: HistoryTranscript = {
+        ...selectedTranscript,
+        ...(responseRecord && typeof responseRecord === "object"
+          ? responseRecord
+          : {}),
+        content: editedContent,
+      };
+
+      setHistory((current) =>
+        current.map((item) =>
+          item.id === selectedTranscript.id ? updatedTranscript : item
+        )
+      );
+      setSelectedTranscript(updatedTranscript);
+      setEditingTranscript(false);
+      setNotice("Transcript updated successfully.");
+      window.setTimeout(() => setNotice(""), 3000);
+    } catch (err) {
+      setHistoryError(
+        err instanceof Error ? err.message : "Could not update transcript."
+      );
+    } finally {
+      setSavingTranscript(false);
     }
   }
 
@@ -765,7 +837,12 @@ export default function Home() {
                         <button
                           type="button"
                           key={item.id}
-                          onClick={() => setSelectedTranscript(item)}
+                          onClick={() => {
+                            setSelectedTranscript(item);
+                            setEditingTranscript(false);
+                            setEditedContent(item.content || "");
+                            setHistoryError("");
+                          }}
                           className={`history-card w-full rounded-2xl border p-4 text-left transition ${
                             selectedTranscript?.id === item.id
                               ? "history-card-active"
@@ -829,6 +906,18 @@ export default function Home() {
                           <div className="mt-5 flex flex-wrap gap-2">
                             <button
                               type="button"
+                              onClick={() => {
+                                setEditedContent(selectedTranscript.content || "");
+                                setEditingTranscript(true);
+                                setHistoryError("");
+                              }}
+                              disabled={editingTranscript || savingTranscript}
+                              className="rounded-lg border border-cyan-300/20 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-300/[0.07] disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
                               onClick={() =>
                                 void copyText(selectedTranscript.content || "")
                               }
@@ -853,9 +942,49 @@ export default function Home() {
                           </div>
 
                           <div className="mt-5 rounded-xl border border-white/[0.06] bg-[#080d1b]/70 p-4">
-                            <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-300">
-                              {selectedTranscript.content || "No text available."}
-                            </p>
+                            {editingTranscript ? (
+                              <>
+                                <label
+                                  htmlFor="edit-transcript-content"
+                                  className="mb-2 block text-xs font-semibold uppercase tracking-wide text-cyan-200"
+                                >
+                                  Edit transcript text
+                                </label>
+                                <textarea
+                                  id="edit-transcript-content"
+                                  value={editedContent}
+                                  onChange={(event) => setEditedContent(event.target.value)}
+                                  disabled={savingTranscript}
+                                  className="min-h-56 w-full resize-y rounded-lg border border-white/[0.10] bg-[#050916] p-3 text-sm leading-7 text-slate-200 outline-none focus:border-cyan-300/50 disabled:opacity-60"
+                                />
+                                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingTranscript(false);
+                                      setEditedContent(selectedTranscript.content || "");
+                                      setHistoryError("");
+                                    }}
+                                    disabled={savingTranscript}
+                                    className="rounded-lg border border-white/[0.10] px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.06] disabled:opacity-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void updateTranscript()}
+                                    disabled={savingTranscript || !editedContent.trim()}
+                                    className="rounded-lg bg-cyan-300 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {savingTranscript ? "Saving…" : "Save Changes"}
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-300">
+                                {selectedTranscript.content || "No text available."}
+                              </p>
+                            )}
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
