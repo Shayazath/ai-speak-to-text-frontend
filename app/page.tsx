@@ -696,7 +696,7 @@ export default function Home() {
                     aria-label="Search transcript history"
                     className="min-w-0 flex-1 rounded-xl border border-white/[0.10] bg-[#080d1b]/80 px-4 py-3 text-sm outline-none placeholder:text-slate-500 focus:border-cyan-300/50"
                   />
-                  <select
+                  {/* <select
                     value={historyFilter}
                     onChange={(event) =>
                       setHistoryFilter(
@@ -709,7 +709,7 @@ export default function Home() {
                     <option value="all">All types</option>
                     <option value="upload">Audio uploads</option>
                     <option value="live">Live recordings</option>
-                  </select>
+                  </select> */}
                   <button
                     type="button"
                     onClick={() => void loadHistory()}
