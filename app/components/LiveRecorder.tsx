@@ -34,6 +34,7 @@ function downsampleToPCM16(
 
   return output.buffer;
 }
+
 function normalizeWord(word: string): string {
   return word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
@@ -56,38 +57,58 @@ function mergeTranscript(
     };
   }
 
-  // Find the largest overlap between the end of the previous window
-  // and the beginning of the current window.
-  const maxOverlap = Math.min(previousWords.length, currentWords.length);
+  // Find the largest matching sequence anywhere in the previous
+  // rolling window and current rolling window.
+  let bestPreviousEnd = -1;
+  let bestCurrentEnd = -1;
+  let bestLength = 0;
 
-  for (let size = maxOverlap; size >= 2; size--) {
-    const previousSuffix = previousWords.slice(-size);
-    const currentPrefix = currentWords.slice(0, size);
+  for (let i = 0; i < previousWords.length; i++) {
+    for (let j = 0; j < currentWords.length; j++) {
+      let length = 0;
 
-    const matches = previousSuffix.every(
-      (word, index) =>
-        normalizeWord(word) === normalizeWord(currentPrefix[index]),
-    );
+      while (
+        i + length < previousWords.length &&
+        j + length < currentWords.length &&
+        normalizeWord(previousWords[i + length]) ===
+          normalizeWord(currentWords[j + length])
+      ) {
+        length++;
+      }
 
-    if (matches) {
-      const newText = currentWords.slice(size).join(" ");
-
-      return {
-        text: newText
-          ? `${previousWindow.trim()} ${newText}`.trim()
-          : previousWindow.trim(),
-        newText,
-      };
+      // Prefer longer overlaps. Require at least two words so that
+      // common words like "I" or "the" do not cause false matches.
+      if (length > bestLength && length >= 2) {
+        bestLength = length;
+        bestPreviousEnd = i + length;
+        bestCurrentEnd = j + length;
+      }
     }
   }
 
-  // If no reliable overlap is found, don't silently discard the
-  // current result. Keep it available for review rather than guessing.
+  if (bestLength >= 2) {
+    const newWords = currentWords.slice(bestCurrentEnd);
+    const newText = newWords.join(" ");
+
+    // The current window may revise wording, so only append the
+    // words following the matched section.
+    return {
+      text: newText
+        ? `${previousWindow.trim()} ${newText}`.trim()
+        : previousWindow.trim(),
+      newText,
+    };
+  }
+
+  // Do not blindly append a whole overlapping window when matching
+  // fails. Preserve the current conversation and wait for the next
+  // update to establish a clearer overlap.
   return {
-    text: `${previousWindow.trim()} ${currentWindow.trim()}`.trim(),
-    newText: currentWindow.trim(),
+    text: previousWindow.trim(),
+    newText: "",
   };
 }
+
 type LiveRecorderProps = {
   onSave: (content: string, language: string) => Promise<void>;
 };
