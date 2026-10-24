@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
+  allowedDevOrigins: ['192.168.0.249','https://zwwz2r5t-3000.inc1.devtunnels.ms'],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
