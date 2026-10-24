@@ -40,26 +40,30 @@ function normalizeWord(word: string): string {
 }
 
 function mergeTranscript(
+  fullTranscript: string,
   previousWindow: string,
   currentWindow: string,
 ): { text: string; newText: string } {
+  const fullText = fullTranscript.trim();
   const previousWords = previousWindow.trim().split(/\s+/).filter(Boolean);
   const currentWords = currentWindow.trim().split(/\s+/).filter(Boolean);
 
   if (!currentWords.length) {
-    return { text: previousWindow, newText: "" };
+    return { text: fullText, newText: "" };
   }
 
+  // First transcription window: add it to the full conversation.
   if (!previousWords.length) {
+    const newText = currentWords.join(" ");
     return {
-      text: currentWindow.trim(),
-      newText: currentWindow.trim(),
+      text: [fullText, newText].filter(Boolean).join(" "),
+      newText,
     };
   }
 
-  // Find the largest matching sequence anywhere in the previous
-  // rolling window and current rolling window.
-  let bestPreviousEnd = -1;
+  // Rolling windows overlap, but Whisper may change punctuation or
+  // slightly revise words. Find the longest common sequence anywhere
+  // in the previous and current windows, then append the current tail.
   let bestCurrentEnd = -1;
   let bestLength = 0;
 
@@ -76,36 +80,32 @@ function mergeTranscript(
         length++;
       }
 
-      // Prefer longer overlaps. Require at least two words so that
-      // common words like "I" or "the" do not cause false matches.
-      if (length > bestLength && length >= 2) {
+      if (length > bestLength) {
         bestLength = length;
-        bestPreviousEnd = i + length;
         bestCurrentEnd = j + length;
       }
     }
   }
 
-  if (bestLength >= 2) {
+  // Two matching words are a reasonable minimum for identifying overlap.
+  if (bestLength >= 2 && bestCurrentEnd >= 0) {
     const newWords = currentWords.slice(bestCurrentEnd);
     const newText = newWords.join(" ");
 
-    // The current window may revise wording, so only append the
-    // words following the matched section.
     return {
-      text: newText
-        ? `${previousWindow.trim()} ${newText}`.trim()
-        : previousWindow.trim(),
+      // Crucially, append to the COMPLETE conversation, not previousWindow.
+      text: newText ? [fullText, newText].filter(Boolean).join(" ") : fullText,
       newText,
     };
   }
 
-  // Do not blindly append a whole overlapping window when matching
-  // fails. Preserve the current conversation and wait for the next
-  // update to establish a clearer overlap.
+  // If recognition changed too much to detect overlap, do not replace
+  // the conversation with the latest window. Append the current window
+  // as a fallback; this can occasionally repeat words, but preserves text.
+  const newText = currentWords.join(" ");
   return {
-    text: previousWindow.trim(),
-    newText: "",
+    text: [fullText, newText].filter(Boolean).join(" "),
+    newText,
   };
 }
 
@@ -278,17 +278,19 @@ export default function LiveRecorder({ onSave }: LiveRecorderProps) {
           const data = JSON.parse(event.data);
 
           if (data.type === "transcript") {
-            const currentWindow = data.text?.trim() ?? "";
+            const currentWindow = (data.text || "").trim();
 
             if (currentWindow) {
+              const previousWindow = previousWindowRef.current;
               const merged = mergeTranscript(
-                previousWindowRef.current,
+                fullTranscriptRef.current,
+                previousWindow,
                 currentWindow,
               );
 
+              // Store the latest rolling window separately from the full passage.
               previousWindowRef.current = currentWindow;
               fullTranscriptRef.current = merged.text;
-
               setTranscript(merged.text);
             }
 
@@ -398,7 +400,10 @@ export default function LiveRecorder({ onSave }: LiveRecorderProps) {
         </p>
       )}
 
-      <label htmlFor="live-transcript" className="mt-4 block text-sm font-medium text-slate-300">
+      <label
+        htmlFor="live-transcript"
+        className="mt-4 block text-sm font-medium text-slate-300"
+      >
         Full conversation (editable)
       </label>
       <textarea
@@ -423,7 +428,11 @@ export default function LiveRecorder({ onSave }: LiveRecorderProps) {
               await onSave(transcript.trim(), language);
               setStatus("Transcript saved successfully");
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not save transcript.");
+              setError(
+                err instanceof Error
+                  ? err.message
+                  : "Could not save transcript.",
+              );
             } finally {
               setSaving(false);
             }
