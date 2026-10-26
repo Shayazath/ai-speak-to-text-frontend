@@ -915,191 +915,43 @@ export default function Home() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <div className="space-y-3">
-                      {filteredHistory.map((item) => (
-                        <button
-                          type="button"
-                          key={item.id}
-                          onClick={() => {
-                            setSelectedTranscript(item);
-                            setEditingTranscript(false);
-                            setEditedContent(item.content || "");
-                            setHistoryError("");
-                          }}
-                          className={`history-card w-full rounded-2xl border p-4 text-left transition ${
-                            selectedTranscript?.id === item.id
-                              ? "history-card-active"
-                              : "border-white/[0.08] hover:border-cyan-300/30"
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-300/[0.09] text-xl text-cyan-200">
-                              ▤
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {filteredHistory.map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        onClick={() => {
+                          setSelectedTranscript(item);
+                          setEditingTranscript(false);
+                          setEditedContent(item.content || "");
+                          setHistoryError("");
+                        }}
+                        className="history-card w-full min-w-0 rounded-2xl border border-white/[0.08] p-4 text-left transition hover:border-cyan-300/40 hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-300/[0.09] text-xl text-cyan-200">
+                            ▤
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="break-words font-semibold">{transcriptTitle(item)}</p>
+                              <span className="rounded-full bg-white/[0.06] px-2 py-1 text-[10px] uppercase tracking-wide text-slate-400">
+                                {item.language || "Unknown language"}
+                              </span>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-semibold">
-                                  {transcriptTitle(item)}
-                                </p>
-                                <span className="rounded-full bg-white/[0.06] px-2 py-1 text-[10px] uppercase tracking-wide text-slate-400">
-                                  {item.language || "Unknown language"}
-                                </span>
-                              </div>
-                              <p className="mt-1 text-xs text-slate-500">
-                                {transcriptDate(item)} · ID {item.id}
-                              </p>
-                              <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
-                                {item.content || "No transcript text available."}
-                              </p>
-                              <p className="mt-3 text-xs text-cyan-200">
-                                Open transcript →
-                              </p>
-                            </div>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {transcriptDate(item)} · ID {item.id}
+                            </p>
+                            <p className="mt-3 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-400">
+                              {item.content || "No transcript text available."}
+                            </p>
+                            <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-cyan-200">
+                              Open transcript <span aria-hidden="true">↗</span>
+                            </p>
                           </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="transcript-panel h-fit rounded-2xl border border-white/[0.09] p-5 xl:sticky xl:top-5">
-                      {selectedTranscript ? (
-                        <>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-xs uppercase tracking-[0.15em] text-cyan-300">
-                                Transcript detail
-                              </p>
-                              <h3 className="mt-2 break-words text-lg font-bold">
-                                {transcriptTitle(selectedTranscript)}
-                              </h3>
-                              <p className="mt-2 text-xs text-slate-500">
-                                {transcriptDate(selectedTranscript)} · ID{" "}
-                                {selectedTranscript.id}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTranscript(null)}
-                              aria-label="Close transcript detail"
-                              className="rounded-lg px-3 py-2 text-slate-400 hover:bg-white/[0.06]"
-                            >
-                              ×
-                            </button>
-                          </div>
-
-                          <div className="mt-5 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditedContent(selectedTranscript.content || "");
-                                setEditingTranscript(true);
-                                setHistoryError("");
-                              }}
-                              disabled={editingTranscript || savingTranscript}
-                              className="rounded-lg border border-cyan-300/20 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-300/[0.07] disabled:opacity-50"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void copyText(selectedTranscript.content || "")
-                              }
-                              className="rounded-lg border border-white/[0.10] px-3 py-2 text-xs font-semibold hover:bg-white/[0.06]"
-                            >
-                              Copy text
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => downloadTranscript(selectedTranscript)}
-                              className="rounded-lg border border-white/[0.10] px-3 py-2 text-xs font-semibold hover:bg-white/[0.06]"
-                            >
-                              Download .txt
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteTarget(selectedTranscript)}
-                              className="rounded-lg border border-red-300/20 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-300/[0.07]"
-                            >
-                              Delete
-                            </button>
-                          </div>
-
-                          <div className="mt-5 rounded-xl border border-white/[0.06] bg-[#080d1b]/70 p-4">
-                            {editingTranscript ? (
-                              <>
-                                <label
-                                  htmlFor="edit-transcript-content"
-                                  className="mb-2 block text-xs font-semibold uppercase tracking-wide text-cyan-200"
-                                >
-                                  Edit transcript text
-                                </label>
-                                <textarea
-                                  id="edit-transcript-content"
-                                  value={editedContent}
-                                  onChange={(event) => setEditedContent(event.target.value)}
-                                  disabled={savingTranscript}
-                                  className="min-h-56 w-full resize-y rounded-lg border border-white/[0.10] bg-[#050916] p-3 text-sm leading-7 text-slate-200 outline-none focus:border-cyan-300/50 disabled:opacity-60"
-                                />
-                                <div className="mt-4 flex flex-wrap justify-end gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingTranscript(false);
-                                      setEditedContent(selectedTranscript.content || "");
-                                      setHistoryError("");
-                                    }}
-                                    disabled={savingTranscript}
-                                    className="rounded-lg border border-white/[0.10] px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.06] disabled:opacity-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => void updateTranscript()}
-                                    disabled={savingTranscript || !editedContent.trim()}
-                                    className="rounded-lg bg-cyan-300 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    {savingTranscript ? "Saving…" : "Save Changes"}
-                                  </button>
-                                </div>
-                              </>
-                            ) : (
-                              <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-300">
-                                {selectedTranscript.content || "No text available."}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500">
-                            <span>
-                              {(selectedTranscript.content || "").trim()
-                                ? selectedTranscript.content.trim().split(/\s+/).length
-                                : 0}{" "}
-                              words
-                            </span>
-                            <span>
-                              Language: {selectedTranscript.language || "Unknown"}
-                            </span>
-                            {selectedTranscript.duration_seconds != null && (
-                              <span>{selectedTranscript.duration_seconds}s</span>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="py-10 text-center">
-                          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-violet-300/[0.08] text-xl text-violet-200">
-                            ↗
-                          </div>
-                          <h3 className="mt-4 font-semibold">
-                            Choose a transcript
-                          </h3>
-                          <p className="mt-2 text-sm leading-6 text-slate-500">
-                            Select a record to read the full text and access its actions.
-                          </p>
                         </div>
-                      )}
-                    </div>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1152,6 +1004,129 @@ export default function Home() {
           </button>
         </footer>
       </div>
+
+      {mode === "history" && selectedTranscript && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !savingTranscript) {
+              setSelectedTranscript(null);
+              setEditingTranscript(false);
+              setHistoryError("");
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transcript-modal-title"
+            className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-white/[0.12] bg-[#0d1426] shadow-2xl sm:max-h-[88vh] sm:rounded-3xl"
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-white/[0.08] p-4 sm:p-6">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300 sm:text-xs">Transcript details</p>
+                <h2 id="transcript-modal-title" className="mt-2 break-words text-lg font-bold text-white sm:text-2xl">
+                  {transcriptTitle(selectedTranscript)}
+                </h2>
+                <p className="mt-2 text-xs text-slate-500">
+                  {transcriptDate(selectedTranscript)} · ID {selectedTranscript.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTranscript(null);
+                  setEditingTranscript(false);
+                  setHistoryError("");
+                }}
+                aria-label="Close transcript details"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 text-xl text-slate-300 hover:bg-white/[0.07]"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="flex flex-wrap gap-2 border-b border-white/[0.06] p-4 sm:px-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditedContent(selectedTranscript.content || "");
+                  setEditingTranscript(true);
+                  setHistoryError("");
+                }}
+                disabled={editingTranscript || savingTranscript}
+                className="rounded-xl border border-cyan-300/25 px-3 py-2.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-300/[0.08] disabled:opacity-50"
+              >Edit transcript</button>
+              <button
+                type="button"
+                onClick={() => void copyText(editingTranscript ? editedContent : selectedTranscript.content || "")}
+                className="rounded-xl border border-white/10 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/[0.06]"
+              >Copy text</button>
+              <button
+                type="button"
+                onClick={() => downloadTranscript(selectedTranscript)}
+                className="rounded-xl border border-white/10 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/[0.06]"
+              >Download .txt</button>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(selectedTranscript)}
+                className="rounded-xl border border-red-300/20 px-3 py-2.5 text-xs font-semibold text-red-200 hover:bg-red-300/[0.08]"
+              >Delete</button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+              {historyError && (
+                <p role="alert" className="mb-4 rounded-xl border border-red-400/20 bg-red-400/[0.07] p-3 text-sm text-red-200">{historyError}</p>
+              )}
+              {editingTranscript ? (
+                <>
+                  <label htmlFor="edit-transcript-content" className="mb-2 block text-xs font-semibold uppercase tracking-wide text-cyan-200">Edit transcript text</label>
+                  <textarea
+                    id="edit-transcript-content"
+                    value={editedContent}
+                    onChange={(event) => setEditedContent(event.target.value)}
+                    disabled={savingTranscript}
+                    className="min-h-[42vh] w-full resize-y rounded-xl border border-white/[0.10] bg-[#050916] p-4 text-sm leading-7 text-slate-200 outline-none focus:border-cyan-300/50 disabled:opacity-60 sm:min-h-[360px]"
+                  />
+                  <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTranscript(false);
+                        setEditedContent(selectedTranscript.content || "");
+                        setHistoryError("");
+                      }}
+                      disabled={savingTranscript}
+                      className="rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/[0.06] disabled:opacity-50"
+                    >Cancel</button>
+                    <button
+                      type="button"
+                      onClick={() => void updateTranscript()}
+                      disabled={savingTranscript || !editedContent.trim()}
+                      className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >{savingTranscript ? "Saving changes…" : "Save changes"}</button>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-white/[0.07] bg-[#080d1b]/80 p-4 sm:p-5">
+                  <p className="whitespace-pre-wrap break-words text-sm leading-7 text-slate-200 sm:text-base sm:leading-8">
+                    {selectedTranscript.content || "No transcript text available."}
+                  </p>
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+                <span>{(selectedTranscript.content || "").trim() ? selectedTranscript.content.trim().split(/\s+/).length : 0} words</span>
+                <span>Language: {selectedTranscript.language || "Unknown"}</span>
+                {selectedTranscript.duration_seconds != null && <span>Duration: {selectedTranscript.duration_seconds}s</span>}
+              </div>
+            </div>
+            <footer className="border-t border-white/[0.08] px-4 py-3 text-xs text-slate-500 sm:px-6">
+              On mobile, swipe/scroll inside this panel to read long transcripts and reach the actions.
+            </footer>
+          </section>
+        </div>
+      )}
 
       {deleteTarget && (
         <div
